@@ -27,7 +27,7 @@ export class Hud {
       <span style="font-weight:700;color:${color};font-variant-numeric:tabular-nums;">${value}</span></div>`;
   }
 
-  draw(flight, mission, mode, camMode) {
+  draw(flight, mission, mode, camMode, weatherTag = '') {
     const hdg = ((flight.heading * 180 / Math.PI) % 360 + 360) % 360;
     const stall = flight.stalled ? `<div style="color:#ff6a5a;font-weight:800;text-align:center;
       animation:none;margin-top:4px;">⚠ STALL</div>` : '';
@@ -45,7 +45,7 @@ export class Hud {
         ${stall}
       `)}
       ${this.panel('20px', '190px', `
-        <div style="font-size:11px;letter-spacing:2px;color:#8ab4c8;margin-bottom:4px;">${CONFIG.modeNames[mode]} · ${camMode.toUpperCase()} CAM</div>
+        <div style="font-size:11px;letter-spacing:2px;color:#8ab4c8;margin-bottom:4px;">${CONFIG.modeNames[mode]} · ${camMode.toUpperCase()} CAM${weatherTag ? ` · <span style="color:#cfe0ec;">${weatherTag}</span>` : ''}</div>
         ${objective}
         ${this.row('SCORE', String(mission.score), '#e8d87a')}
         ${mission.message ? `<div style="color:#7ee8a8;font-weight:700;font-size:14px;margin-top:4px;">${mission.message}</div>` : ''}

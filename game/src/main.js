@@ -16,6 +16,11 @@ import { Input } from './input.js';
 import { buildVegetation } from './vegetation.js';
 import { buildBirds } from './birds.js';
 import { TrailSystem } from './trails.js';
+import { WeatherSystem } from './weather.js';
+import { SmokeSystem } from './smoke.js';
+import { CompassTape } from './compass.js';
+import { SettingsPanel } from './settings.js';
+import { recordFlight, summaryLines } from './stats.js';
 
 const params = new URLSearchParams(location.search);
 const shotMode = params.get('shot');
@@ -42,6 +47,12 @@ const ocean = buildOcean(scene);
 buildVegetation(scene, seed);
 const birds = buildBirds(scene, seed);
 const trails = new TrailSystem(scene);
+const weather = new WeatherSystem(scene, seed);
+const smoke = new SmokeSystem(scene);
+const compass = new CompassTape();
+document.body.appendChild(compass.root);
+const settingsPanel = new SettingsPanel((s) => { sfx.enabled = s.sound; });
+let settingsOpen = false;
 const aircraft = buildAircraft();
 scene.add(aircraft);
 const rig = new CameraRig(camera);
@@ -57,6 +68,8 @@ let rings = null;
 let paused = false;
 let camMode = 'chase';
 let time = 0;
+const stats = { maxAltitude: 0, topSpeed: 0 };
+let hudWeatherTag = '';
 const input = new Input();
 
 function startGame(m) {
@@ -79,11 +92,18 @@ function endGame() {
   state = 'end';
   sfx.stopEngine();
   hud.show();
+  recordFlight({
+    distanceKm: flight.distanceFlown / 1000,
+    maxAltitude: stats.maxAltitude,
+    topSpeed: stats.topSpeed,
+    landings: mode === 'landing' && mission.won ? 1 : 0,
+  });
   const title = mission.won ? 'MISSION COMPLETE' : flight.crashed ? 'CRASHED' : 'TIME UP';
   const detail = mission.landing
     ? `Touchdown ${mission.landing.speed} m/s · sink rate ${mission.landing.vSpeed} m/s · ${mission.landing.onRunway ? 'on the runway' : 'off the runway'}`
     : mode === 'rings' ? `${mission.nextRing} of ${CONFIG.ringCount} rings flown` : 'Sortie complete.';
-  hud.overlay(title, `${detail}<br>Score: <b style="color:#ffd98a">${mission.score}</b> · Distance ${(flight.distanceFlown / 1000).toFixed(1)} km`,
+  hud.overlay(title, `${detail}<br>Score: <b style="color:#ffd98a">${mission.score}</b> · Distance ${(flight.distanceFlown / 1000).toFixed(1)} km
+    <div style="margin-top:10px;font-size:14px;color:#9ab4c8;">${summaryLines()}</div>`,
     'Press ENTER to return to the menu');
 }
 
@@ -96,6 +116,12 @@ function update(dt) {
   if (paused) return;
   if (input.restartPressed()) { paused = false; startGame(mode); return; }
   if (input.cameraTogglePressed()) camMode = camMode === 'chase' ? 'cockpit' : 'chase';
+
+  // Track flight records and atmosphere for the end screen.
+  stats.maxAltitude = Math.max(stats.maxAltitude, flight.pos.y);
+  stats.topSpeed = Math.max(stats.topSpeed, flight.speed);
+  const kind = weather.update(dt, flight.pos);
+  hudWeatherTag = kind ? kind.name.toUpperCase() : '';
 
   updateFlight(flight, input, dt);
   mission.update(dt, flight, rings ?? []);
@@ -127,7 +153,13 @@ function draw() {
     }
     rig.update(0.016, flight, aircraft);
     if (rig.mode === 'cockpit') rig.drawPanel(flight);
-    hud.draw(flight, mission, mode, rig.mode);
+    compass.draw(flight.heading);
+    compass.show(true);
+    // Engine smoke when pushed hard; dust while rolling on ground.
+    const eng = new THREE.Vector3(0, 0, -4.2).applyQuaternion(flight.quat).add(flight.pos);
+    const wheels = flight.onGround ? new THREE.Vector3(flight.pos.x, flight.pos.y - 1.6, flight.pos.z) : null;
+    smoke.update(0.016, eng, flight.throttle > 0.8, wheels);
+    hud.draw(flight, mission, mode, rig.mode, hudWeatherTag);
   }
   renderer.render(scene, camera);
 }
@@ -190,7 +222,11 @@ window.addEventListener('resize', () => {
 
 // Menu keys / end keys are handled here for the state machine.
 window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyS' && state === 'menu') { settingsPanel.toggle(); return; }
   if (state === 'menu' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
+    settingsPanel.hide();
+    camMode = settingsPanel.settings.startCamera;
+    stats.maxAltitude = 0; stats.topSpeed = 0;
     startGame(CONFIG.modes[Number(e.code.slice(-1)) - 1]);
   } else if (state === 'end' && (e.code === 'Enter' || e.code === 'KeyR')) {
     state = 'menu';
