@@ -13,6 +13,9 @@ import { buildRings, Mission } from './missions.js';
 import { Hud } from './hud.js';
 import { sfx } from './audio.js';
 import { Input } from './input.js';
+import { buildVegetation } from './vegetation.js';
+import { buildBirds } from './birds.js';
+import { TrailSystem } from './trails.js';
 
 const params = new URLSearchParams(location.search);
 const shotMode = params.get('shot');
@@ -36,6 +39,9 @@ buildEnvironment(scene, seed);
 buildTerrainMeshes(scene, seed);
 buildRunway(scene, CONFIG.runway);
 const ocean = buildOcean(scene);
+buildVegetation(scene, seed);
+const birds = buildBirds(scene, seed);
+const trails = new TrailSystem(scene);
 const aircraft = buildAircraft();
 scene.add(aircraft);
 const rig = new CameraRig(camera);
@@ -84,6 +90,7 @@ function endGame() {
 function update(dt) {
   time += dt;
   updateOcean(ocean, time);
+  birds.update(time);
   if (state !== 'play') return;
   if (input.pausePressed()) { paused = !paused; if (paused) hud.overlay('PAUSED', 'The islands wait.', 'P to resume · R restart · ESC resume'); else hud.clearOverlay(); }
   if (paused) return;
@@ -112,6 +119,12 @@ function draw() {
     aircraft.position.copy(flight.pos);
     aircraft.quaternion.copy(flight.quat);
     aircraft.userData.prop.rotation.z += flight.throttle * dt() * 60 + 8;
+    // Wingtip vapour trails while flying fast.
+    if (flight.speed > 48) {
+      const l = new THREE.Vector3(-5.7, 1.35, -0.6).applyQuaternion(flight.quat).add(flight.pos);
+      const r = new THREE.Vector3(5.7, 1.35, -0.6).applyQuaternion(flight.quat).add(flight.pos);
+      trails.update(0.016, [l, r], flight.speed);
+    }
     rig.update(0.016, flight, aircraft);
     if (rig.mode === 'cockpit') rig.drawPanel(flight);
     hud.draw(flight, mission, mode, rig.mode);
