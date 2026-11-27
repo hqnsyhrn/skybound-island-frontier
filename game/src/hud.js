@@ -44,8 +44,6 @@ export class Hud {
         ${this.row('THROTTLE', `${Math.round(flight.throttle * 100)}%`, flight.throttle > 0.85 ? '#e8b84a' : '#eef4f8')}
         ${stall}
       `)}
-      ${this.panel('20px', undefined === undefined ? undefined : undefined, '', 0)}
-    `.replace(this.panel('20px', undefined, '', 0), '') + `
       ${this.panel('20px', '190px', `
         <div style="font-size:11px;letter-spacing:2px;color:#8ab4c8;margin-bottom:4px;">${CONFIG.modeNames[mode]} · ${camMode.toUpperCase()} CAM</div>
         ${objective}

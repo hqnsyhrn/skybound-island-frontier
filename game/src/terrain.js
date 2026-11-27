@@ -38,7 +38,6 @@ export function buildIslands(seed, count) {
   ISLANDS.push({ x: 0, z: 2900, radius: 520, height: 90, volcano: false, seed: 42 });
 }
 
-// Ground elevation at any world point (analytic, cheap enough per frame).
 // Height contribution of a single island (used for its mesh and the global field).
 function islandHeight(is, x, z) {
   const d = Math.hypot(x - is.x, z - is.z);
@@ -62,6 +61,7 @@ function islandHeight(is, x, z) {
   return peak;
 }
 
+// Ground elevation at any world point (analytic, cheap enough per frame).
 export function groundHeight(x, z) {
   let h = -14;                       // sea floor below water
   for (const is of ISLANDS) {
